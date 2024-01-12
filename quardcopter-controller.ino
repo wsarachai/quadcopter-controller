@@ -19,8 +19,8 @@
 #define CHANNEL4 3
 
 #define YAW 0
-#define ROLL 1
-#define PITCH 2
+#define PITCH 1
+#define ROLL 2
 #define THROTTLE 3
 
 #define X 0               // X axis
