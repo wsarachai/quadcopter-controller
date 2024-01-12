@@ -352,17 +352,17 @@ void pidController() {
     pulse_length_esc3 = throttle - roll_pid + pitch_pid - yaw_pid;
     pulse_length_esc4 = throttle + roll_pid + pitch_pid + yaw_pid;
 
-    Serial.print("pulse_length_esc1:");
-    Serial.print(pulse_length_esc1);
-    Serial.print(",");
-    Serial.print("pulse_length_esc2:");
-    Serial.print(pulse_length_esc2);
-    Serial.print(",");
-    Serial.print("pulse_length_esc3:");
-    Serial.print(pulse_length_esc3);
-    Serial.print(",");
-    Serial.print("pulse_length_esc4:");
-    Serial.println(pulse_length_esc4);
+    // Serial.print("pulse_length_esc1:");
+    // Serial.print(pulse_length_esc1);
+    // Serial.print(",");
+    // Serial.print("pulse_length_esc2:");
+    // Serial.print(pulse_length_esc2);
+    // Serial.print(",");
+    // Serial.print("pulse_length_esc3:");
+    // Serial.print(pulse_length_esc3);
+    // Serial.print(",");
+    // Serial.print("pulse_length_esc4:");
+    // Serial.println(pulse_length_esc4);
   }
 
   // Prevent out-of-range-values
