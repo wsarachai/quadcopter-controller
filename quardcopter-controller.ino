@@ -102,8 +102,8 @@ float previous_error[3] = { 0, 0, 0 };  // Last errors (used for derivative comp
 // float Kp[3] = { 4.0, 1.3, 1.3 };     // P coefficients in that order : Yaw, Pitch, Roll
 // float Ki[3] = { 0.02, 0.04, 0.04 };  // I coefficients in that order : Yaw, Pitch, Roll
 // float Kd[3] = { 0, 18, 18 };         // D coefficients in that order : Yaw, Pitch, Roll
-float Kp[3] = { 0.0, 0.0, 0.0 };     // P coefficients in that order : Yaw, Pitch, Roll
-float Ki[3] = { 0.01, 0.01, 0.01 };  // I coefficients in that order : Yaw, Pitch, Roll
+float Kp[3] = { 0.0, 0.8, 0.0 };     // P coefficients in that order : Yaw, Pitch, Roll
+float Ki[3] = { 0.000001, 0.000001, 0.000001 };  // I coefficients in that order : Yaw, Pitch, Roll
 float Kd[3] = { 0.0, 0.0, 0.0 };         // D coefficients in that order : Yaw, Pitch, Roll
 // ---------------------------------------------------------------------------
 /**
@@ -123,6 +123,8 @@ int battery_voltage;
  * Setup configuration
  */
 void setup() {
+  Serial.begin(57600);
+
   // Start I2C communication
   Wire.begin();
   TWBR = 12;  // Set the I2C clock speed to 400kHz.
@@ -270,6 +272,21 @@ void calculateAngles() {
   angular_motions[ROLL] = 0.7 * angular_motions[ROLL] + 0.3 * gyro_raw[Y] / SSF_GYRO;
   angular_motions[PITCH] = 0.7 * angular_motions[PITCH] + 0.3 * gyro_raw[X] / SSF_GYRO;
   angular_motions[YAW] = 0.7 * angular_motions[YAW] - 0.3 * gyro_raw[Z] / SSF_GYRO;
+
+  // Serial.print("angular_motions_YAW:");
+  // Serial.print(angular_motions[YAW]);
+  // Serial.print(",");
+  Serial.print("gyro_angle_X");
+  Serial.print(gyro_angle[X]);
+  Serial.print(",");
+  Serial.print("gyro_raw_X");
+  Serial.print(gyro_raw[X]);
+  Serial.print(",");
+  Serial.print("angular_motions_PITCH:");
+  Serial.print(angular_motions[PITCH]);
+  Serial.print(",");
+  // Serial.print("angular_motions_ROLL:");
+  // Serial.println(angular_motions[ROLL]);
 }
 
 /**
@@ -351,18 +368,6 @@ void pidController() {
     pulse_length_esc2 = throttle + roll_pid - pitch_pid - yaw_pid;
     pulse_length_esc3 = throttle - roll_pid + pitch_pid - yaw_pid;
     pulse_length_esc4 = throttle + roll_pid + pitch_pid + yaw_pid;
-
-    // Serial.print("pulse_length_esc1:");
-    // Serial.print(pulse_length_esc1);
-    // Serial.print(",");
-    // Serial.print("pulse_length_esc2:");
-    // Serial.print(pulse_length_esc2);
-    // Serial.print(",");
-    // Serial.print("pulse_length_esc3:");
-    // Serial.print(pulse_length_esc3);
-    // Serial.print(",");
-    // Serial.print("pulse_length_esc4:");
-    // Serial.println(pulse_length_esc4);
   }
 
   // Prevent out-of-range-values
