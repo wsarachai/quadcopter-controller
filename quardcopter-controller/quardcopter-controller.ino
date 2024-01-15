@@ -102,9 +102,9 @@ float previous_error[3] = { 0, 0, 0 };  // Last errors (used for derivative comp
 // float Kp[3] = { 4.0, 1.3, 1.3 };     // P coefficients in that order : Yaw, Pitch, Roll
 // float Ki[3] = { 0.02, 0.04, 0.04 };  // I coefficients in that order : Yaw, Pitch, Roll
 // float Kd[3] = { 0, 18, 18 };         // D coefficients in that order : Yaw, Pitch, Roll
-float Kp[3] = { 0.0, 0.8, 0.0 };     // P coefficients in that order : Yaw, Pitch, Roll
-float Ki[3] = { 0.000001, 0.000001, 0.000001 };  // I coefficients in that order : Yaw, Pitch, Roll
-float Kd[3] = { 0.0, 0.0, 0.0 };         // D coefficients in that order : Yaw, Pitch, Roll
+float Kp[3] = { 4.0, 1.3, 1.3 };     // P coefficients in that order : Yaw, Pitch, Roll
+float Ki[3] = { 0.02, 0.04, 0.04 };  // I coefficients in that order : Yaw, Pitch, Roll
+float Kd[3] = { 0.0, 18.0, 18.0 };         // D coefficients in that order : Yaw, Pitch, Roll
 // ---------------------------------------------------------------------------
 /**
  * Status of the quadcopter:
@@ -246,50 +246,6 @@ void readSensor() {
 }
 
 /**
- * Calculate real angles from gyro and accelerometer's values
- */
-void calculateAngles() {
-  calculateGyroAngles();
-  calculateAccelerometerAngles();
-
-  if (initialized) {
-    // Correct the drift of the gyro with the accelerometer
-    gyro_angle[X] = gyro_angle[X] * 0.9996 + acc_angle[X] * 0.0004;
-    gyro_angle[Y] = gyro_angle[Y] * 0.9996 + acc_angle[Y] * 0.0004;
-  } else {
-    // At very first start, init gyro angles with accelerometer angles
-    resetGyroAngles();
-
-    initialized = true;
-  }
-
-  // To dampen the pitch and roll angles a complementary filter is used
-  measures[ROLL] = measures[ROLL] * 0.9 + gyro_angle[Y] * 0.1;
-  measures[PITCH] = measures[PITCH] * 0.9 + gyro_angle[X] * 0.1;
-  measures[YAW] = -gyro_raw[Z] / SSF_GYRO;  // Store the angular motion for this axis
-
-  // Apply low-pass filter (10Hz cutoff frequency)
-  angular_motions[ROLL] = 0.7 * angular_motions[ROLL] + 0.3 * gyro_raw[Y] / SSF_GYRO;
-  angular_motions[PITCH] = 0.7 * angular_motions[PITCH] + 0.3 * gyro_raw[X] / SSF_GYRO;
-  angular_motions[YAW] = 0.7 * angular_motions[YAW] - 0.3 * gyro_raw[Z] / SSF_GYRO;
-
-  // Serial.print("angular_motions_YAW:");
-  // Serial.print(angular_motions[YAW]);
-  // Serial.print(",");
-  Serial.print("gyro_angle_X");
-  Serial.print(gyro_angle[X]);
-  Serial.print(",");
-  Serial.print("gyro_raw_X");
-  Serial.print(gyro_raw[X]);
-  Serial.print(",");
-  Serial.print("angular_motions_PITCH:");
-  Serial.print(angular_motions[PITCH]);
-  Serial.print(",");
-  // Serial.print("angular_motions_ROLL:");
-  // Serial.println(angular_motions[ROLL]);
-}
-
-/**
  * Calculate pitch & roll angles using only the gyro.
  */
 void calculateGyroAngles() {
@@ -322,6 +278,71 @@ void calculateAccelerometerAngles() {
   if (abs(acc_raw[Y]) < acc_total_vector) {
     acc_angle[Y] = asin((float)acc_raw[X] / acc_total_vector) * (180 / PI);
   }
+}
+
+/**
+ * Calculate real angles from gyro and accelerometer's values
+ */
+void calculateAngles() {
+  calculateGyroAngles();
+  calculateAccelerometerAngles();
+
+  if (initialized) {
+    // Correct the drift of the gyro with the accelerometer
+    gyro_angle[X] = gyro_angle[X] * 0.9996 + acc_angle[X] * 0.0004;
+    gyro_angle[Y] = gyro_angle[Y] * 0.9996 + acc_angle[Y] * 0.0004;
+  } else {
+    // At very first start, init gyro angles with accelerometer angles
+    resetGyroAngles();
+
+    initialized = true;
+  }
+
+  // To dampen the pitch and roll angles a complementary filter is used
+  measures[ROLL] = measures[ROLL] * 0.9 + gyro_angle[Y] * 0.1;
+  measures[PITCH] = measures[PITCH] * 0.9 + gyro_angle[X] * 0.1;
+  measures[YAW] = -gyro_raw[Z] / SSF_GYRO;  // Store the angular motion for this axis
+
+  // Apply low-pass filter (10Hz cutoff frequency)
+  angular_motions[ROLL] = 0.7 * angular_motions[ROLL] + 0.3 * gyro_raw[Y] / SSF_GYRO;
+  angular_motions[PITCH] = 0.7 * angular_motions[PITCH] + 0.3 * gyro_raw[X] / SSF_GYRO;
+  angular_motions[YAW] = 0.7 * angular_motions[YAW] - 0.3 * gyro_raw[Z] / SSF_GYRO;
+
+  // Serial.print("gyro_raw-X:");
+  // Serial.print(gyro_raw[X]);
+  // Serial.print(",");
+  // Serial.print("measures-PITCH:");
+  // Serial.println(measures[PITCH]);
+}
+
+/**
+ * Calculate errors used by PID controller
+ */
+void calculateErrors() {
+  // Calculate current errors
+  errors[YAW] = angular_motions[YAW] - pid_set_points[YAW];
+  errors[PITCH] = angular_motions[PITCH] - pid_set_points[PITCH];
+  errors[ROLL] = angular_motions[ROLL] - pid_set_points[ROLL];
+
+  // Calculate sum of errors : Integral coefficients
+  error_sum[YAW] += errors[YAW];
+  error_sum[PITCH] += errors[PITCH];
+  error_sum[ROLL] += errors[ROLL];
+
+  // Keep values in acceptable range
+  error_sum[YAW] = minMax(error_sum[YAW], -400 / Ki[YAW], 400 / Ki[YAW]);
+  error_sum[PITCH] = minMax(error_sum[PITCH], -400 / Ki[PITCH], 400 / Ki[PITCH]);
+  error_sum[ROLL] = minMax(error_sum[ROLL], -400 / Ki[ROLL], 400 / Ki[ROLL]);
+
+  // Calculate error delta : Derivative coefficients
+  delta_err[YAW] = errors[YAW] - previous_error[YAW];
+  delta_err[PITCH] = errors[PITCH] - previous_error[PITCH];
+  delta_err[ROLL] = errors[ROLL] - previous_error[ROLL];
+
+  // Save current error as previous_error for next time
+  previous_error[YAW] = errors[YAW];
+  previous_error[PITCH] = errors[PITCH];
+  previous_error[ROLL] = errors[ROLL];
 }
 
 /**
@@ -375,36 +396,19 @@ void pidController() {
   pulse_length_esc2 = minMax(pulse_length_esc2, 1100, 2000);
   pulse_length_esc3 = minMax(pulse_length_esc3, 1100, 2000);
   pulse_length_esc4 = minMax(pulse_length_esc4, 1100, 2000);
-}
 
-/**
- * Calculate errors used by PID controller
- */
-void calculateErrors() {
-  // Calculate current errors
-  errors[YAW] = angular_motions[YAW] - pid_set_points[YAW];
-  errors[PITCH] = angular_motions[PITCH] - pid_set_points[PITCH];
-  errors[ROLL] = angular_motions[ROLL] - pid_set_points[ROLL];
+  Serial.print("throttle:");
+  Serial.print(throttle);
+  Serial.print(",");
+  Serial.print("roll_pid:");
+  Serial.print(roll_pid);
+  Serial.print(",");
+  Serial.print("pitch_pid:");
+  Serial.print(pitch_pid);
+  Serial.print(",");
+  Serial.print("yaw_pid:");
+  Serial.println(yaw_pid);
 
-  // Calculate sum of errors : Integral coefficients
-  error_sum[YAW] += errors[YAW];
-  error_sum[PITCH] += errors[PITCH];
-  error_sum[ROLL] += errors[ROLL];
-
-  // Keep values in acceptable range
-  error_sum[YAW] = minMax(error_sum[YAW], -400 / Ki[YAW], 400 / Ki[YAW]);
-  error_sum[PITCH] = minMax(error_sum[PITCH], -400 / Ki[PITCH], 400 / Ki[PITCH]);
-  error_sum[ROLL] = minMax(error_sum[ROLL], -400 / Ki[ROLL], 400 / Ki[ROLL]);
-
-  // Calculate error delta : Derivative coefficients
-  delta_err[YAW] = errors[YAW] - previous_error[YAW];
-  delta_err[PITCH] = errors[PITCH] - previous_error[PITCH];
-  delta_err[ROLL] = errors[ROLL] - previous_error[ROLL];
-
-  // Save current error as previous_error for next time
-  previous_error[YAW] = errors[YAW];
-  previous_error[PITCH] = errors[PITCH];
-  previous_error[ROLL] = errors[ROLL];
 }
 
 /**
