@@ -104,7 +104,7 @@ int32_t gyro_roll_cal, gyro_pitch_cal, gyro_yaw_cal;
 int16_t acc_pitch_cal_value;
 int16_t acc_roll_cal_value;
 
-int32_t acc_z_average_short_total, acc_z_average_long_total, acc_z_average_total ;
+int32_t acc_z_average_short_total, acc_z_average_long_total, acc_z_average_total;
 int16_t acc_z_average_short[26], acc_z_average_long[51];
 
 uint8_t acc_z_average_short_rotating_mem_location, acc_z_average_long_rotating_mem_location;

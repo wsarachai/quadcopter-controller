@@ -23,7 +23,7 @@
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 float pid_p_gain_roll = 1.3;   //Gain setting for the roll P-controller
 float pid_i_gain_roll = 0.04;  //Gain setting for the roll I-controller
-float pid_d_gain_roll = 18.0;  //Gain setting for the roll D-controller
+float pid_d_gain_roll = 18.0;  //Gain setting for the roll D-controller 18.0
 int pid_max_roll = 400;        //Maximum output of the PID-controller (+/-)
 
 float pid_p_gain_pitch = pid_p_gain_roll;  //Gain setting for the pitch P-controller.
@@ -229,7 +229,7 @@ void loop() {
     pid_last_yaw_d_error = 0;
   }
   //Stopping the motors: throttle low and yaw right.
-  if (start == 2 && receiver_input_channel_3 < 1050 && receiver_input_channel_4 > 1950) start = 0;
+  if (start == 2 && receiver_input_channel_3 < 1100 && receiver_input_channel_4 > 1900) start = 0;
 
   //The PID set point in degrees per second is determined by the roll receiver input.
   //In the case of deviding by 3 the max roll rate is aprox 164 degrees per second ( (500-8)/3 = 164d/s ).
@@ -293,10 +293,10 @@ void loop() {
     if (esc_3 < 1100) esc_3 = 1100;  //Keep the motors running.
     if (esc_4 < 1100) esc_4 = 1100;  //Keep the motors running.
 
-    if (esc_1 > 2000) esc_1 = 2000;  //Limit the esc-1 pulse to 2000us.
-    if (esc_2 > 2000) esc_2 = 2000;  //Limit the esc-2 pulse to 2000us.
-    if (esc_3 > 2000) esc_3 = 2000;  //Limit the esc-3 pulse to 2000us.
-    if (esc_4 > 2000) esc_4 = 2000;  //Limit the esc-4 pulse to 2000us.
+    if (esc_1 > 1600) esc_1 = 1600;  //Limit the esc-1 pulse to 2000us.
+    if (esc_2 > 1600) esc_2 = 1600;  //Limit the esc-2 pulse to 2000us.
+    if (esc_3 > 1600) esc_3 = 1600;  //Limit the esc-3 pulse to 2000us.
+    if (esc_4 > 1600) esc_4 = 1600;  //Limit the esc-4 pulse to 2000us.
   }
 
   else {
