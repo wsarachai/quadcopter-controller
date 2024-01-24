@@ -8,13 +8,13 @@
 
 int delay_counter;
 
-void setup(){
+void setup1(){
   TIMSK0 &= ~_BV(TOIE0);          //Disable timer0 as it will consume a lot of time.
   pinMode(2, OUTPUT);             //Pin 2 will be the PPM output.
   while(PINC & B00000001);        //While analog input 0 is low.
 }
 
-void loop(){
+void loop1(){
   //Channel 1
   while(!(PINC & B00000001));     //While analog input 0 is low.
   PORTD |= B00000100;             //Set output 2 high.
