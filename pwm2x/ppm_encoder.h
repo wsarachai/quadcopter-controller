@@ -3,9 +3,14 @@
 #ifndef _PPM_ENCODER_H_
 #define _PPM_ENCODER_H_
 
-#include <avr/io.h>
+#ifndef FAILHOLD
+//choose the error handling type here!
+#define FAILHOLD 1
+#endif
 
 // -------------------------------------------------------------
+
+#include <avr/io.h>
 
 #include <avr/interrupt.h>
 #include <avr/wdt.h>
@@ -39,7 +44,6 @@
 #define PB2 PORTB2
 #define PB1 PORTB1
 #define PB0 PORTB0
-
 
 // -------------------------------------------------------------
 // SERVO INPUT MODE - !EXPERIMENTAL!
@@ -90,15 +94,14 @@ volatile uint8_t servo_input_mode = SERVO_PWM_MODE;
 // Size of ppm[..] data array ( servo channels * 2 + 2)
 #define PPM_ARRAY_MAX 18
 
-
 // Data array for storing ppm (8 channels) pulse widths.
 volatile uint16_t ppm[PPM_ARRAY_MAX] = {
   PPM_PRE_PULSE,
   PPM_SERVO_CENTER,  // Channel 1
   PPM_PRE_PULSE,
-  PPM_SERVO_CENTER,  // Channel 2
+  PPM_THROTTLE_DEFAULT,  // Channel 2
   PPM_PRE_PULSE,
-  PPM_THROTTLE_DEFAULT,  // Channel 3 (throttle)
+  PPM_SERVO_CENTER,  // Channel 3
   PPM_PRE_PULSE,
   PPM_SERVO_CENTER,  // Channel 4
   PPM_PRE_PULSE,
@@ -112,7 +115,6 @@ volatile uint16_t ppm[PPM_ARRAY_MAX] = {
   PPM_PRE_PULSE,
   PPM_PERIOD
 };
-
 
 // -------------------------------------------------------------
 // SERVO FAILSAFE VALUES
@@ -139,16 +141,15 @@ const uint16_t failsafe_ppm[PPM_ARRAY_MAX] = {
 };
 // -------------------------------------------------------------
 
-
 // AVR parameters for ArduPilot MEGA v1.4 PPM Encoder (ATmega328P)
 #if defined(__AVR_ATmega328P__) || defined(__AVR_ATmega328__)
 
-
 #define SERVO_DDR DDRD
 #define SERVO_PORT PORTD
-#define SERVO_INPUT PIND
+#define SERVO_INPUT ((PIND & ~0b11) | (PINB & 0b11))
 // PCIE2 PC Interrupt enable 2 is for Arduino Pins (D0-D7), also called PORTD.
 #define SERVO_INT_VECTOR PCINT2_vect
+ISR(PCINT0_vect, ISR_ALIASOF(PCINT2_vect));
 
 #define SERVO_INT_MASK PCMSK2
 #define SERVO_INT_CLEAR_FLAG PCIF2
@@ -185,14 +186,14 @@ volatile bool brownout_reset = false;
 // this starts OUTGOING PPM stream on PPM_PORT (PORTB, Arduino D8-D13)  at PPM_OUTPUT_PIN (PB2, arduino pin D10)
 void ppm_start(void) {
   // Prevent reenabling an already active PPM generator
-  if (ppm_generator_active) return;
+  if (ppm_generator_active)
+    return;
 
   // Store interrupt status and register flags
   uint8_t SREG_tmp = SREG;
 
   // Stop interrupts
   cli();
-
 
   // Make sure initial output state is low
   PPM_PORT &= ~(1 << PPM_OUTPUT_PIN);
@@ -265,16 +266,13 @@ ISR(WDT_vect)  // If watchdog is triggered then enable missing signal flag and c
 }
 // ------------------------------------------------------------------------------
 
-
 // ------------------------------------------------------------------------------
 // SERVO/PPM INPUT - PIN CHANGE INTERRUPT, for any Arduino pin D0 -> D7
 // ------------------------------------------------------------------------------
 ISR(SERVO_INT_VECTOR) {
 
-
   // Servo pulse start timing
   static uint16_t servo_start[SERVO_CHANNELS] = { 0, 0, 0, 0, 0, 0, 0, 0 };
-
 
   // Missing throttle signal failsafe
   static uint8_t throttle_timeout = 0;
@@ -288,21 +286,21 @@ ISR(SERVO_INT_VECTOR) {
   // Read current servo pulse change time
   uint16_t servo_time = SERVO_TIMER_CNT;
 
-
   // ------------------------------------------------------------------------------
   // SERVO PWM MODE
   // ------------------------------------------------------------------------------
-CHECK_PINS_START:  // Start of servo input check
 
   // Store current servo input pins
   servo_pins = SERVO_INPUT;
 
-  // Calculate servo input pin change mask
-  uint8_t servo_change = servo_pins ^ servo_pins_old;
+CHECK_PINS_START:  // Start of servo input check
 
   // Set initial servo pin and channel
-  uint8_t servo_pin = 1;
   uint8_t servo_channel = 0;
+  uint8_t servo_pin = 1;
+
+  // Calculate servo input pin change mask
+  uint8_t servo_change = (servo_pins ^ servo_pins_old);
 
 CHECK_PINS_LOOP:  // Input servo pin check loop
 
@@ -314,24 +312,25 @@ CHECK_PINS_LOOP:  // Input servo pin check loop
     if (servo_pins & servo_pin) {
       servo_start[servo_channel] = servo_time;
     } else {
+
       // Get servo pulse width
-      uint16_t servo_width = servo_time - servo_start[servo_channel] - PPM_PRE_PULSE;
+      uint16_t servo_width = servo_time - servo_start[servo_channel]
+                             - PPM_PRE_PULSE;
 
       // Calculate servo channel position in ppm[..]
       uint8_t _ppm_channel = (servo_channel << 1) + 1;
 
       // Check that servo pulse signal is valid before sending to ppm encoder
-      if (servo_width > PPM_SERVO_MAX) goto CHECK_PINS_ERROR;
-      if (servo_width < PPM_SERVO_MIN) goto CHECK_PINS_ERROR;
+      if (servo_width > PPM_SERVO_MAX)
+        goto CHECK_PINS_ERROR;
+      if (servo_width < PPM_SERVO_MIN)
+        goto CHECK_PINS_ERROR;
 
       goto CHECK_PINS_NOERROR;
 
 CHECK_PINS_ERROR:
 
       // on width input error, use defailt/failsave value, OR previous value
-
-      // choose the error handling type here!
-#define FAILHOLD 1
 
 #ifdef FAILCENTRE
       servo_width = failsafe_ppm[_ppm_channel];  // failsafe defaults, most channels centred, throttle lowered.
@@ -344,7 +343,8 @@ CHECK_PINS_ERROR:
 CHECK_PINS_NOERROR:
 
       //Reset throttle failsafe timeout
-      if (_ppm_channel == 5) throttle_timeout = 0;
+      if (_ppm_channel == 3)
+        throttle_timeout = 0;
 
 #ifdef _AVERAGE_FILTER_
       // Average filter to smooth input jitter
@@ -373,10 +373,10 @@ CHECK_PINS_NEXT:
   servo_channel++;
 
   // Check channel and process if needed
-  if (servo_channel < SERVO_CHANNELS) goto CHECK_PINS_LOOP;
+  if (servo_channel < SERVO_CHANNELS)
+    goto CHECK_PINS_LOOP;
 
   goto CHECK_PINS_DONE;
-
 
   // All servo input pins has now been processed
 
@@ -388,29 +388,29 @@ CHECK_PINS_DONE:
   // Set servo input missing flag false to indicate that we have received servo input signals
   servo_input_missing = false;
 
-  // Store current servo input pins for next check
-  servo_pins_old = servo_pins;
-
   // Start PPM generator if not already running
-  if (ppm_generator_active == false) ppm_start();
-
+  if (ppm_generator_active == false)
+    ppm_start();
 
   // Throttle failsafe
   if (throttle_timeout++ >= 128) {
     // Reset throttle timeout
     throttle_timeout = 0;
     // Set throttle failsafe value
-    ppm[5] = PPM_THROTTLE_FAILSAFE;
+    ppm[3] = PPM_THROTTLE_FAILSAFE;
   }
 
+  // Store current servo input pins for next check
+  servo_pins_old = servo_pins;
+  servo_pins = SERVO_INPUT;
   //Has servo input changed while processing pins, if so we need to re-check pins
-  if (servo_pins != SERVO_INPUT) goto CHECK_PINS_START;
+  if (servo_pins != servo_pins_old)
+    goto CHECK_PINS_START;
 
   // Clear interrupt event from already processed pin changes
-  PCIFR |= (1 << SERVO_INT_CLEAR_FLAG);
+  PCIFR |= ((1 << SERVO_INT_CLEAR_FLAG) | (1 << PCIF0));
 }
 // ------------------------------------------------------------------------------
-
 
 // ------------------------------------------------------------------------------
 // PPM OUTPUT - TIMER1 COMPARE INTERRUPT
@@ -433,45 +433,51 @@ ISR(PPM_INT_VECTOR) {
 // PPM READ - INTERRUPT SAFE PPM SERVO CHANNEL READ
 // ------------------------------------------------------------------------------
 /* uint16_t ppm_read_channel( uint8_t channel )
-{
-    // Limit channel to valid value
-    uint8_t _channel = channel;
-    if( _channel == 0 ) _channel = 1;
-    if( _channel > SERVO_CHANNELS ) _channel = SERVO_CHANNELS;
-    // Calculate ppm[..] position
-    uint8_t ppm_index = ( _channel << 1 ) + 1;
-    
-    // Read ppm[..] in a non blocking interrupt safe manner
-    uint16_t ppm_tmp = ppm[ ppm_index ];
-    while( ppm_tmp != ppm[ ppm_index ] ) ppm_tmp = ppm[ ppm_index ];
-    // Return as normal servo value
-    return ppm_tmp + PPM_PRE_PULSE;    
-}
-*/
-// ------------------------------------------------------------------------------
+ {
+ // Limit channel to valid value
+ uint8_t _channel = channel;
+ if( _channel == 0 ) _channel = 1;
+ if( _channel > SERVO_CHANNELS ) _channel = SERVO_CHANNELS;
 
+ // Calculate ppm[..] position
+ uint8_t ppm_index = ( _channel << 1 ) + 1;
+
+ // Read ppm[..] in a non blocking interrupt safe manner
+ uint16_t ppm_tmp = ppm[ ppm_index ];
+ while( ppm_tmp != ppm[ ppm_index ] ) ppm_tmp = ppm[ ppm_index ];
+
+ // Return as normal servo value
+ return ppm_tmp + PPM_PRE_PULSE;
+ }
+ */
+// ------------------------------------------------------------------------------
 // ------------------------------------------------------------------------------
 // PPM ENCODER INIT
 // ------------------------------------------------------------------------------
 void ppm_encoder_init(void) {
+
   // SERVO/PPM INPUT PINS
   // ------------------------------------------------------------------------------
   // Set all servo input pins to inputs
   SERVO_DDR = 0;
+  DDRB &= ~0b11;
 
   // Activate pullups on all input pins
-  SERVO_PORT |= 0xFF;
-
+  SERVO_PORT |= 0b11111100;
+  PORTB |= ~0b11;
+  /* Disable pull-ups for all pins */
+  //MCUCR |= (1u << PUD); //MCUCR_PUD = 1u;
 
   // SERVO/PPM INPUT - PIN CHANGE INTERRUPT
   // ------------------------------------------------------------------------------
   if (servo_input_mode == SERVO_PWM_MODE) {
     // Set servo input interrupt pin mask to all 8 servo input channels
-    SERVO_INT_MASK = 0xFF;
+    SERVO_INT_MASK = 0xFF & ~0b11;  // exclude PCINT16,17 (rx,tx)
+    PCMSK0 = (1 << PCINT0) | (1 << PCINT1);
   }
 
   // Enable servo input interrupt
-  PCICR |= (1 << SERVO_INT_ENABLE);
+  PCICR |= ((1 << SERVO_INT_ENABLE) | (1 << PCIE0));
 
   // PPM OUTPUT PIN
   // ------------------------------------------------------------------------------
