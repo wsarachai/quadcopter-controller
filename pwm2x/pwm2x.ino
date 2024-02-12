@@ -84,6 +84,7 @@ static inline uint16_t ppm_read(uint8_t channel) {
 
   return ppm_tmp;
 }
+
 uint8_t SBUS_Packet_Data[25];
 uint8_t SBUS_Failsafe_Active = 0;
 uint8_t SBUS_Lost_Frame = 0;
@@ -175,12 +176,12 @@ void setup() {
   sei();
   // Enable Global interrupt flag
 
-  serconfig = digitalRead(CONFIGPIN);
-  if (serconfig) {
-    Serial.begin(115200);
-  } else {
-    Serial.begin(100000, SERIAL_8E2);
-  }
+  // serconfig = digitalRead(CONFIGPIN);
+  // if (serconfig) {
+  //   Serial.begin(115200);
+  // } else {
+  //   Serial.begin(100000, SERIAL_8E2);
+  // }
 }
 
 void loop() {
@@ -188,22 +189,22 @@ void loop() {
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------
 // AUXILIARY TASKS
 // ------------------------------------------------------------------------------------------------------------------------------------------------------------
-PWM_LOOP:  // SERVO_PWM_MODE
-  while (1) {
-    delay(7);
+// PWM_LOOP:  // SERVO_PWM_MODE
+//   while (1) {
+//     delay(7);
 
-    if (serconfig) {
-      for (uint8_t i = 0; i < SERVO_CHANNELS; i++) {
-        Serial.print(PPMVAL2SBUSVAL(ppm_read(channelorder[i])));
-        //Serial.print(ppm_read(channelorder[i]));
-        Serial.print(" ");
-      }
-      Serial.println();
-    } else {
-      SBUS_Build_Packet();
-      Serial.write(SBUS_Packet_Data, 25);
-    }
+//     if (serconfig) {
+//       for (uint8_t i = 0; i < SERVO_CHANNELS; i++) {
+//         Serial.print(PPMVAL2SBUSVAL(ppm_read(channelorder[i])));
+//         //Serial.print(ppm_read(channelorder[i]));
+//         Serial.print(" ");
+//       }
+//       Serial.println();
+//     } else {
+//       SBUS_Build_Packet();
+//       Serial.write(SBUS_Packet_Data, 25);
+//     }
 
-  }  // PWM Loop end
+//   }  // PWM Loop end
 
 }  // main loop function end

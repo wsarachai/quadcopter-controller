@@ -17,7 +17,7 @@ void timer_setup(void) {
   TIMER2_BASE->CCER = TIMER_CCER_CC1E;
 
   //TIMER2_BASE->CCER |= TIMER_CCER_CC1P;    //Detect falling edge.
-  TIMER2_BASE->CCER &= ~TIMER_CCER_CC1P; //Detect rising edge.
+  TIMER2_BASE->CCER &= ~TIMER_CCER_CC1P;  //Detect rising edge.
   TIMER2_BASE->PSC = 71;
   TIMER2_BASE->ARR = 0xFFFF;
   TIMER2_BASE->DCR = 0;
@@ -44,4 +44,3 @@ void timer_setup(void) {
   pinMode(PB8, PWM);
   pinMode(PB9, PWM);
 }
-
